@@ -1,0 +1,48 @@
+name: iOS Build (arm64)
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build-ios:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Ninja
+        run: brew install ninja
+
+      - name: Resolve iOS SDK path
+        run: |
+          SDK=$(xcrun --sdk iphoneos --show-sdk-path)
+          echo "IOS_SDK=$SDK" >> "$GITHUB_ENV"
+          echo "Using SDK: $SDK"
+
+      - name: Configure (iOS / arm64 / Release)
+        run: |
+          cmake -S . -B build \
+            -G Ninja \
+            -DCMAKE_SYSTEM_NAME=iOS \
+            -DCMAKE_OSX_ARCHITECTURES=arm64 \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=14.0 \
+            -DCMAKE_OSX_SYSROOT="${{ env.IOS_SDK }}" \
+            -DCMAKE_C_COMPILER="$(xcrun --find clang)" \
+            -DCMAKE_CXX_COMPILER="$(xcrun --find clang++)" \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_XCODE_ATTRIBUTE_CODE_SIGNING_ALLOWED=NO \
+            -DCMAKE_XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY=""
+
+      - name: Build
+        run: cmake --build build --config Release
+
+      - name: Upload dylib
+        uses: actions/upload-artifact@v4
+        with:
+          name: Dumper-7-ios-arm64
+          path: build/lib/*.dylib
+          if-no-files-found: error
